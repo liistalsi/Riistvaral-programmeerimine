@@ -60,7 +60,7 @@ int simple_uart1_putchar(char c, FILE *stream)
     }
 
     loop_until_bit_is_set(UCSR1A, UDRE1);
-    UDR0 = c;
+    UDR1 = c;
     return 0;
 }
 

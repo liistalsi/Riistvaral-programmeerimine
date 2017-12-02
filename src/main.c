@@ -1,87 +1,88 @@
 #include <stdio.h>
-#define __ASSERT_USE_STDERR
-#include <assert.h>
 #include <avr/io.h>
 #include <util/delay.h>
 #include "uart.h"
-
-// Set blink delay
+#include "../lib/hd44780_111/hd44780.h"
 #define BLINK_DELAY_MS 100
+#include "hmi_msg.h"
+#include "print_helper.h"
 
-static inline void init_leds(void)
+void init_leds(void)
 {
-    /* lab2 LEDs set up */
-    DDRB |= _BV(DDB7);
+    /* Set port B pin 7 for output for Arduino Mega yellow LED */
     DDRA |= _BV(DDA0);
     DDRA |= _BV(DDA2);
     DDRA |= _BV(DDA4);
+    DDRB |= _BV(DDB7);
     PORTB &= ~_BV(PORTB7);
 }
 
-
 /* Init error console as stderr in UART1 and print user code info */
-static inline void init_errcon(void)
+void init_errcon(void)
 {
     simple_uart1_init();
-    stderr = &simple_uart1_out;
-    fprintf(stderr, "Version: %s built on: %s %s\n",
-            FW_VERSION, __DATE__, __TIME__);
-    fprintf(stderr, "avr-libc version: %s avr-gcc version: %s\n",
-            __AVR_LIBC_VERSION_STRING__, __VERSION__);
+    /*stderr = &simple_uart1_out;*/
+    fprintf_P(stderr, PSTR(VER_FW),
+              PSTR(FW_VERSION), PSTR(__DATE__), PSTR(__TIME__));
+    fprintf_P(stderr, PSTR(VER_LIBC),
+              PSTR(__AVR_LIBC_VERSION_STRING__), PSTR(__VERSION__));
 }
 
-
-static inline void blink_leds(void)
-{
-    /* lab2 LEDs blinking code */
-    while (1) {
-        // Set port A pin 22 high to turn Arduino Mega red LED on
-        PORTA |= _BV(PORTA0);
-        _delay_ms(BLINK_DELAY_MS);
-        // Set port A pin 22 high to turn Arduino Mega red LED off
-        PORTA &= ~_BV(PORTA0);
-        _delay_ms(BLINK_DELAY_MS);
-        // Set port A pin 24 high to turn Arduino Mega green LED on
-        PORTA |= _BV(PORTA2);
-        _delay_ms(BLINK_DELAY_MS);
-        // Set port A pin 24 high to turn Arduino Mega green LED off
-        PORTA &= ~_BV(PORTA2);
-        _delay_ms(BLINK_DELAY_MS);
-        // Set port A pin 26 high to turn Arduino Mega blue LED on
-        PORTA |= _BV(PORTA4);
-        _delay_ms(BLINK_DELAY_MS);
-        // Set port A pin 26 high to turn Arduino Mega blue LED off
-        PORTA &= ~_BV(PORTA4);
-        _delay_ms(BLINK_DELAY_MS);
-    }
-}
-
-
-void main(void)
+/* lcd init and print on lcd screen student name*/
+void student_lcd(void)
 {
     init_leds();
     init_errcon();
-    /* Test assert - REMOVE IN FUTURE LABS */
-    char *array;
-    uint32_t i = 1;
-    extern int __heap_start, *__brkval;
-    int v;
-    array = malloc( i * sizeof(char));
-    assert(array);
-    /* End test assert */
+    lcd_init();
+    lcd_home();
+    lcd_puts_P(PSTR(STUDENT_NAME));
+}
+/* led blinking in 3 colors*/
+void blink_leds(void)
+{
+    PORTA |= _BV(PORTA0);
+    _delay_ms(BLINK_DELAY_MS);
+    /* Set port B pin 7 high to turn Arduino Mega yellow LED off */
+    PORTA &= ~_BV(PORTA0);
+    _delay_ms(BLINK_DELAY_MS);
+    /* Set port B pin 6 high to turn Arduino Mega yellow LED off */
+    PORTA |= _BV(PORTA2);
+    _delay_ms(BLINK_DELAY_MS);
+    /* Set port B pin 6 high to turn Arduino Mega yellow LED off */
+    PORTA &= ~_BV(PORTA2);
+    _delay_ms(BLINK_DELAY_MS);
+    /* Set port B pin 5 high to turn Arduino Mega yellow LED off */
+    PORTA |= _BV(PORTA4);
+    _delay_ms(BLINK_DELAY_MS);
+    /* Set port B pin 5 high to turn Arduino Mega yellow LED off */
+    PORTA &= ~_BV(PORTA4);
+    _delay_ms(BLINK_DELAY_MS);
+}
+
+void main(void)
+{
+    student_lcd();
+    /* init uart0 */
+    simple_uart0_init();
+    /*stdin = stdout = &simple_uart0_io;*/ /* stdin=stdout stream */
+    fprintf_P(stdout, PSTR(STUDENT_NAME)); /* print student name */
+    /* ascii table */
+    print_ascii_tbl(stdout);
+    print_for_human(stdout);
 
     while (1) {
+        /* Asks a number and return number in word*/
+        int info;
+        fprintf_P(stdout, PSTR(ENTER_NUMBER));
+        fscanf(stdin, "%d", &info);
+        fprintf(stdout, "%d\n", info);
+
+        if (info >= 0 && info < 10) {
+            fprintf_P(stdout, PSTR(REPLY_NUMBER), (PGM_P)pgm_read_word(&(numbers[info])));
+        } else {
+            fprintf_P(stdout, PSTR(WRONG_NUMBER));
+        }
+
         blink_leds();
-        /* Test assert - REMOVE IN FUTURE LABS */
-        /*
-         * Increase memory allocated for array by 100 chars
-         * until we have eaten it all and print space between stack and heap.
-         * That is how assert works in run-time.
-         */
-        array = realloc( array, (i++ * 100) * sizeof(char));
-        fprintf(stderr, "%d\n",
-                (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval));
-        assert(array);
-        /* End test assert */
     }
 }
