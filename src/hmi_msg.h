@@ -7,6 +7,7 @@
 #define ENTER_NUMBER "Enter number >"
 #define REPLY_NUMBER "You entered number %S\n"
 #define WRONG_NUMBER "Please enter number between 0 and 9!\n"
+#define NOT_NUMBER "Please enter decimal number\n"
 #define STUDENT_NAME "Liis Talsi"
 
 const char n1[] PROGMEM = "Zero";

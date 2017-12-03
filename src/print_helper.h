@@ -1,8 +1,9 @@
-#ifndef _PRINT_HELPER_H_
-#define _PRINT_HELPER_H_
+#ifndef _PRINT_HELPER_H
+#define _PRINT_HELPER_H
+
 
 int print_ascii_tbl (FILE *stream);
-int print_for_human (FILE *stream);
+int print_for_human (FILE *stream, const unsigned char *array,
+                     const size_t len);
 
-#endif /* _PRINT_HELPER_H_ */
-
+#endif /* header guard end*/
