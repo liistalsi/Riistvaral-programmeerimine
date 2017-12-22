@@ -1,34 +1,32 @@
-#include <avr/io.h>
-#include <stdio.h>
+#include <stddef.h>         /* Needed for type size_t */
 #include "print_helper.h"
+#include "../lib/andygock_avr-uart/uart.h"
+#include <avr/pgmspace.h>
 
-/* Method to print ascii table*/
-int print_ascii_tbl (FILE *stream)
+/* Print ASCII table */
+void print_ascii_tbl(void)
 {
-    for (char c = ' '; c <= '~'; c++) {
-        if (!fprintf(stream, "%c ", c)) {
-            return 0;
-        }
+    for (char c = ' ';  c <= '~'; c++) {
+        uart0_putc(c);
     }
 
-    return fprintf(stream, "\n");
+    uart0_puts_p(PSTR("\r\n"));
 }
 
-/* Method to print human table and what isn't in asci table, will be printed in hex code*/
-int print_for_human (FILE *stream, const unsigned char *array,
-                     const size_t len)
+
+void print_for_human (const unsigned char *array, const size_t len)
 {
-    for (unsigned int i = 0; i < len; i++) {
+    for (size_t i = 0; i < len; i++) {
         if (array[i] >= ' ' && array[i] <= '~') {
-            if (!fprintf(stream, "%c", array[i])) {
-                return 0;
-            }
+            uart0_putc(array[i]);
         } else {
-            if (!fprintf(stream, "\"0x%02X\"", array[i])) {
-                return 0;
-            }
+            uart0_puts_p(PSTR("\"0x"));
+            uart0_putc((array[i] >> 4) + ((array[i] >> 4) <= 9 ? 0x30 : 0x37));
+            uart0_putc((array[i] & 0x0F) + ((array[i] & 0x0F) <= 9 ? 0x30 : 0x37));
+            uart0_putc('"');
         }
     }
 
-    return fprintf(stream, "\n");
+    uart0_puts_p(PSTR("\r\n"));
 }
+
