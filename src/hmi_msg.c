@@ -2,11 +2,6 @@
 #ifndef HMI_MSG /* prevent the header file to be included more than once, see "wrapper #ifndef" */
 #define HMI_MSG
 
-const char VER_FW[] PROGMEM = "Version: " FW_VERSION " built on: " __DATE__ " "
-                              __TIME__ "\r\n";
-const char VER_LIBC[] PROGMEM = "avr-libc version: " __AVR_LIBC_VERSION_STRING__
-                                " avr-gcc version: " __VERSION__ "\r\n";
-
 const char START_NOTE[] PROGMEM = "Program started";
 const char ENTER_NUMBER[] PROGMEM = "Enter number >";
 const char REPLY_NUMBER[] PROGMEM = "You entered number ";

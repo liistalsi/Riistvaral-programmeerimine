@@ -24,15 +24,10 @@
 //#define COUNT_1_10_SECONDS  // 1/10 seconds
 //#define COUNT_1_100_SECONDS // 1/100 seconds
 
-/* Un comment to get ASCII print. Otherwise bytes are sent */
-#define ASCII_PRINT
-#ifdef ASCII_PRINT
-#endif /* ASCII_PRINT */
-
 
 volatile uint32_t counter_1; //Global seconds counter
-uint32_t prev_time = 0; //Heartbeat time placeholder
-uint32_t now = 0; //Heartbeat time placeholder
+// prev_time = 0; //Heartbeat time placeholder
+// now = 0; //Heartbeat time placeholder
 
 // Create microrl object and pointer on it
 microrl_t rl;
@@ -59,6 +54,9 @@ static inline void init_con_uarts(void)
     uart1_puts_p(PSTR("\r\n"));
     uart1_puts_p(STUDENT_NAME);
     uart1_puts_p(PSTR("\r\n"));
+    uart1_puts_p(PSTR(VER_FW));
+    uart1_puts_p(PSTR(VER_LIBC));
+    uart1_puts_p(PSTR("\r\n"));
     // call init with ptr to microrl instance and print callback
     microrl_init (prl, uart0_puts);
     // set callback for execute
@@ -68,31 +66,20 @@ static inline void init_con_uarts(void)
 
 static inline void init_counter_1(void)
 {
-    counter_1 = 0; // Set counter to 0
-    TCCR1A = 0; // Timer/Counter 1 Control Register A
-    TCCR1B = 0;// Timer/Counter 1 Control Register B
+    TCCR1A = 0;
+    TCCR1B = 0;
     TCCR1B |= _BV(WGM12); // Turn on CTC (Clear Timer on Compare)
-#ifdef COUNT_SECONDS
     TCCR1B |= _BV(CS12); // fCPU/256
     OCR1A = 62549; // Note that it is actually two registers OCR5AH and OCR5AL
-#endif /* COUNT_SECONDS */
-#ifdef COUNT_1_10_SECONDS
-    TCCR1B |= _BV(CS12); // fCPU/256
-    OCR1A = 6249; // Output Compare Register 1 A
-#endif /* COUNT_1_10_SECONDS */
-#ifdef COUNT_1_100_SECONDS
-    TCCR1B |= _BV(CS10) | _BV(CS11); // fCPU/64
-    OCR1A = 2499;
-#endif /* COUNT_1_100_SECONDS */
     TIMSK1 |= _BV(OCIE1A); // Output Compare A Match Interrupt Enable
 }
 
 
 static inline void heartbeat(void)
 {
-#ifdef ASCII_PRINT
+    static uint32_t prev_time;
+    uint32_t now = 0;
     char print_buf[11] = {0x00}; // Buffer lagre enough to hold all long (uint32_t) digits
-#endif /* ASCII_PRINT */
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
         now = counter_1;
     }
@@ -103,9 +90,7 @@ static inline void heartbeat(void)
         uart1_puts(print_buf);
         uart1_puts_p(PSTR(" s.\r\n"));
         PORTA ^= _BV(LED_GREEN);
-        ATOMIC_BLOCK(ATOMIC_FORCEON) {
-            prev_time = now;
-        }
+        prev_time = now;
     }
 }
 
