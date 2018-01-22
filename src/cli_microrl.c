@@ -6,9 +6,14 @@
 #include "../lib/hd44780_111/hd44780.h"
 #include "../lib/andygock_avr-uart/uart.h"
 #include "../lib/helius_microrl/microrl.h"
+#include "../lib/andy_brown_memdebug/memdebug.h"
+#include "../lib/matejx_avr_lib/mfrc522.h"
 #include "hmi_msg.h"
 #include "cli_microrl.h"
 #include "print_helper.h"
+#include "rfid.h"
+
+//The code from: https://github.com/KaarelP2rtel/i237 was taken as an example when writing the following code
 
 #define NUM_ELEMS(x)        (sizeof(x) / sizeof((x)[0]))
 
@@ -19,6 +24,12 @@ void cli_print_ascii_tbls(const char *const *argv);
 void cli_handle_number(const char *const *argv);
 void cli_print_cmd_error(void);
 void cli_print_cmd_arg_error(void);
+void cli_print_free(const char *const *argv);
+void cli_print_list(const char *const *argv);
+void cli_add(const char *const *argv);
+void cli_remove(const char *const *argv);
+void cli_print_read(const char *const *argv);
+
 
 
 typedef struct cli_cmd {
@@ -27,6 +38,8 @@ typedef struct cli_cmd {
     void (*func_p)();
     const uint8_t func_argc;
 } cli_cmd_t;
+
+
 
 const char help_cmd[] PROGMEM = "help";
 const char help_help[] PROGMEM = "Get help";
@@ -41,6 +54,19 @@ const char number_cmd[] PROGMEM = "number";
 const char number_help[] PROGMEM =
     "Print and display matching number Usage: number <decimal number>";
 
+const char free_cmd[] PROGMEM = "free";
+const char free_help[] PROGMEM = "Print the amount of free memory.";
+const char list_cmd[] PROGMEM = "list";
+const char list_help[] PROGMEM = "Print list of access cards";
+const char add_cmd[] PROGMEM = "add";
+const char add_help[] PROGMEM =
+    "Add Micare card to list. Usage: add <card uid> <card holder name>";
+const char remove_cmd[] PROGMEM = "remove";
+const char remove_help[] PROGMEM =
+    "Remove Mifare card from list. Usage: remove <card uid>";
+const char read_cmd[] PROGMEM = "read";
+const char read_help[] PROGMEM = "Print info about the current card.";
+
 
 const cli_cmd_t cli_cmds[] = {
     {help_cmd, help_help, cli_print_help, 0},
@@ -48,7 +74,77 @@ const cli_cmd_t cli_cmds[] = {
     {example_cmd, example_help, cli_example, 3},
     {ascii_cmd, ascii_help, cli_print_ascii_tbls, 0},
     {number_cmd, number_help, cli_handle_number, 1},
+
+    {free_cmd, free_help, cli_print_free, 0},
+    {list_cmd, list_help, cli_print_list, 0},
+    {add_cmd, add_help, cli_add, 2},
+    {remove_cmd, remove_help, cli_remove, 1},
+    {read_cmd, read_help, cli_print_read, 0},
 };
+
+
+
+void cli_print_free(const char *const *argv)
+{
+    (void) argv;
+    char print_buf[256] = {0x00};
+    extern int __heap_start, *__brkval;
+    int v;
+    int space;
+    static int prev_space;
+    space = (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+    uart0_puts_p(PSTR("Heap statistics\r\n"));
+    sprintf_P(print_buf, PSTR("Used: %u\r\nFree: %u\r\n"), getMemoryUsed(),
+              getFreeMemory());
+    uart0_puts(print_buf);
+    uart0_puts_p(PSTR("\r\nSpace between stack and heap:\r\n"));
+    sprintf_P(print_buf, PSTR("Current  %d\r\nPrevious %d\r\nChange   %d\r\n"),
+              space, prev_space, space - prev_space);
+    uart0_puts(print_buf);
+    uart0_puts_p(PSTR("\r\nFreelist\r\n"));
+    sprintf_P(print_buf, PSTR("Freelist size:             %u\r\n"),
+              getFreeListSize());
+    uart0_puts(print_buf);
+    sprintf_P(print_buf, PSTR("Blocks in freelist:        %u\r\n"),
+              getNumberOfBlocksInFreeList());
+    uart0_puts(print_buf);
+    sprintf_P(print_buf, PSTR("Largest block in freelist: %u\r\n"),
+              getLargestBlockInFreeList());
+    uart0_puts(print_buf);
+    sprintf_P(print_buf, PSTR("Largest freelist block:    %u\r\n"),
+              getLargestAvailableMemoryBlock());
+    uart0_puts(print_buf);
+    sprintf_P(print_buf, PSTR("Largest allocable block:   %u\r\n"),
+              getLargestNonFreeListBlock());
+    uart0_puts(print_buf);
+    prev_space = space;
+}
+
+
+void cli_print_list(const char *const *argv)
+{
+    (void )argv;
+    rfid_print_list();
+}
+
+
+void cli_add(const char *const *argv)
+{
+    rfid_add(argv);
+}
+
+
+void cli_remove(const char *const *argv)
+{
+    rfid_remove(argv);
+}
+
+
+void cli_print_read(const char *const *argv)
+{
+    (void) argv;
+    rfid_read();
+}
 
 
 void cli_print_help(const char *const *argv)
@@ -86,13 +182,14 @@ void cli_print_ascii_tbls(const char *const *argv)
 {
     (void) argv;
     print_ascii_tbl();
-    unsigned char ascii[128] = {0};
+    uart0_puts("\r\n");
+    unsigned char array[128] = {0};
 
-    for (unsigned char i = 0; i < sizeof(ascii); i++) {
-        ascii[i] = i;
+    for (unsigned char i = 0; i < sizeof(array); i++) {
+        array[i] = i;
     }
 
-    print_for_human(ascii, sizeof(ascii));
+    print_for_human(array, sizeof(array));
 }
 
 
@@ -137,7 +234,7 @@ void cli_print_cmd_error(void)
 void cli_print_cmd_arg_error(void)
 {
     uart0_puts_p(
-        PSTR("Too few or too many arguments for this command\r\n\tUse <help>\r\n"));
+        PSTR("To few or too many arguments for this command\r\n\tUse <help>\r\n"));
 }
 
 

@@ -1,4 +1,4 @@
-#include <stddef.h>         /* Needed for type size_t */
+#include <stddef.h> /* Needed for type size_t */
 #include "print_helper.h"
 #include "../lib/andygock_avr-uart/uart.h"
 #include <avr/pgmspace.h>
@@ -29,4 +29,3 @@ void print_for_human (const unsigned char *array, const size_t len)
 
     uart0_puts_p(PSTR("\r\n"));
 }
-
